@@ -1,0 +1,82 @@
+import org.jboss.forge.roaster.Roaster
+import org.jboss.forge.roaster.model.source.JavaClassSource
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.jboss.forge.roaster:roaster-jdt:2.29.0.Final'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'application'
+}
+
+application {
+    mainClass = 'org.frc.Main'
+}
+
+sourceSets.main.java.srcDirs += ['src/staging/java']
+
+tasks.register('syncKoansEngine', Sync) {
+    group = 'koans'
+
+    from layout.projectDirectory.dir('../FrcJavaKoans/src/main/java')
+    into layout.projectDirectory.dir('src/staging/java')
+    include 'engine/**', 'sensei/**', '*PathToEnlightment.java'
+}
+
+tasks.register('syncSolutions', Sync) {
+    group = 'koans'
+    dependsOn tasks.syncKoansEngine
+
+    from layout.projectDirectory.dir('src/inject/passing')
+    into layout.projectDirectory.dir('src/staging/java')
+    preserve {
+        include 'engine/**', 'sensei/**', '*PathToEnlightment.java'
+    }
+}
+
+tasks.compileJava {
+    dependsOn tasks.syncSolutions
+}
+
+// Experiment to see if could be asserting failures for particular koans as well. Not used for now.
+abstract class InjectKoansSources extends DefaultTask {
+    @InputFile
+    RegularFile sourceFile
+
+    @TaskAction
+    void action() {
+        def parsedClass = Roaster.parse(JavaClassSource.class, sourceFile.asFile)
+        def method = parsedClass.getMethod('sayHelloInConsole')
+        parsedClass.removeMethod(method)
+        def newMethod = parsedClass
+            .addMethod()
+            .setName(method.name)
+            .setPublic()
+            .setStatic(true)
+            .setBody('System.out.println(\'Hello!\');')
+
+        if (!newMethod.getReturnType().isType('void')) {
+            newMethod.setReturnType(method.getReturnType())
+        }
+        method.parameters.each { p ->
+            newMethod.addParameter(p.type.toString(), p.name)
+        }
+        sourceFile.asFile.withWriter { w ->
+            w.print(parsedClass)
+        }
+    }
+}
+
+tasks.register('injectKoansSources', InjectKoansSources) {
+    group = 'koans'
+    description = 'Prepare the src/staging directory with a simulation of student answers'
+    dependsOn tasks.syncSolutions
+
+     sourceFile = layout.projectDirectory.dir('src/staging/java/koans/english').file('AboutConsoleAndVariables.java')
+}
