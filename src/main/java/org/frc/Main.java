@@ -19,52 +19,70 @@ public class Main {
         )
     );
 
-    public static class KoanFailedException extends RuntimeException {
-        public final TestSensei.TestResult result;
-        public KoanFailedException(TestSensei.TestResult result) {
-            super(String.format("%s failed in %s", result, result.locale()));
-            this.result = result;
+    private record RunResult(int totalKoans, int totalAssertions, int succeededAssertions) {
+        public static final RunResult ZERO = new RunResult(0, 0, 0);
+
+        public RunResult recordAssertion(boolean assertionSucceeded) {
+            return new RunResult(totalKoans, totalAssertions + 1, succeededAssertions + (assertionSucceeded ? 1 : 0));
+        }
+
+        public RunResult append(RunResult other) {
+            return new RunResult(totalKoans + other.totalKoans, totalAssertions + other.totalAssertions, succeededAssertions + other.succeededAssertions);
+        }
+
+        public boolean hasFailures() {
+            return succeededAssertions < totalAssertions;
         }
     }
 
     public static void main(String[] args) {
-        try {
-            for (var locale : Locale.values()) {
-                System.setProperty("locale", locale.name());
-                executeSuiteListsIn(locale);
-            }
-        } catch(KoanFailedException kfe) {
-            System.out.printf("%s failed in %s%n", kfe.result, kfe.result.locale());
-            kfe.result.displayOutputToConsole();
+        var result = RunResult.ZERO;
+
+        for (var locale : Locale.values()) {
+            System.setProperty("locale", locale.name());
+            result = result.append(executeSuiteListsIn(locale));
+        }
+
+        System.out.printf("%n%s/%s assertions executed successfully in %s koans.%n", result.succeededAssertions, result.totalAssertions, result.totalKoans);
+
+        if (result.hasFailures()) {
             System.exit(1);
         }
-        System.out.println("All koans passing for all locales.");
     }
 
-    public static void executeSuiteListsIn(Locale locale) {
-        for(var suiteList: ALL_SUITE_LISTS) {
-            executeSuitesIn(locale, suiteList);
+    private static RunResult executeSuiteListsIn(Locale locale) {
+        var runResult = RunResult.ZERO;
+        for(final var suiteList: ALL_SUITE_LISTS) {
+            runResult = runResult.append(executeSuitesIn(locale, suiteList));
         }
+        return runResult;
     }
 
-    public static void executeSuitesIn(Locale locale, List<List<Koan>> suites) {
-        for(var suite: suites) {
-            executeSuiteIn(locale, suite);
+    private static RunResult executeSuitesIn(Locale locale, List<List<Koan>> suites) {
+        var runResult = RunResult.ZERO;
+        for(final var suite: suites) {
+            runResult = runResult.append(executeSuiteIn(locale, suite));
         }
+        return runResult;
     }
 
-    public static void executeSuiteIn(Locale locale, List<Koan> suite) {
-        for(var koan: suite) {
-            executeKoanIn(locale, koan);
+    private static RunResult executeSuiteIn(Locale locale, List<Koan> suite) {
+        var runResult = RunResult.ZERO;
+        for(final var koan: suite) {
+            runResult = runResult.append(executeKoanIn(locale, koan));
         }
+        return runResult;
     }
 
-    public static void executeKoanIn(Locale locale, Koan koan) {
-        var results = TestSensei.execute(koan, locale);
-        for(var result: results) {
+    private static RunResult executeKoanIn(Locale locale, Koan koan) {
+        var runResult = new RunResult(1,0, 0);
+        final var results = TestSensei.execute(koan, locale);
+        for(final var result: results) {
             if (!result.succeeded()) {
-                throw new KoanFailedException(result);
+                System.out.printf("%s failed in %s%n%s", result, result.locale(), result.output().capturedOutputAsString());
             }
+            runResult = runResult.recordAssertion(result.succeeded());
         }
+        return runResult;
     }
 }
