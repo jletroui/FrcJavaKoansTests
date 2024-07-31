@@ -29,10 +29,11 @@ Which hopefully should show you something close to:
 
 ```
 > Task :run
-All koans passing for all locales.
 
-BUILD SUCCESSFUL in 1m 1s
-4 actionable tasks: 2 executed, 2 up-to-date
+494/494 assertions executed successfully in 162 koans.
+
+BUILD SUCCESSFUL in 342ms
+4 actionable tasks: 3 executed, 1 up-to-date
 ```
 
 ## TODO
