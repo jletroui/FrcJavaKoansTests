@@ -1,7 +1,7 @@
 package org.frc;
 
 import engine.Koan;
-import engine.Locale;
+import engine.text.Locale;
 import engine.TestSensei;
 import sensei.AboutArraysKoans;
 import sensei.AboutInterfacesKoans;
@@ -78,10 +78,10 @@ public class Main {
         var runResult = new RunResult(1,0, 0);
         final var results = TestSensei.execute(koan, locale);
         for(final var result: results) {
-            if (!result.succeeded()) {
-                System.out.printf("%s failed in %s%n%s", result, result.locale(), result.output().capturedOutputAsString());
+            if (!result.testResult().succeeded()) {
+                System.out.printf("%s failed in %s%n%s", result, result.testResult().testOutput().locale, result.outputCapture().capturedStdOutAsString());
             }
-            runResult = runResult.recordAssertion(result.succeeded());
+            runResult = runResult.recordAssertion(result.testResult().succeeded());
         }
         return runResult;
     }
