@@ -2,7 +2,7 @@ package bonuses.english;
 
 import java.util.List;
 
-import engine.Locale;
+import engine.text.Locale;
 import engine.Sensei;
 import sensei.AboutArraysKoans;
 
